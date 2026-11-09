@@ -1,0 +1,20 @@
+{
+  "name": "Trivia Night",
+  "genre": "word",
+  "dim": "2D",
+  "mode": "Party",
+  "players": "2–12",
+  "hook": "Quick questions you can change any time.",
+  "how": "Ten questions, 15 seconds each. Faster right answers score more. Swap the question pack whenever you like.",
+  "controls": "Click or tap an answer, or press 1 to 4",
+  "uses": [
+    ["Rounds", "Questions, timers and scores stay the same for everyone, even when the host leaves."],
+    ["Leaderboard", "Each player's best game."],
+    ["Bots", "Quiz bots play until enough people join."]
+  ],
+  "ideas": [
+    "Add a picture round",
+    "Make the last question worth double",
+    "Make a question pack about movies"
+  ]
+}

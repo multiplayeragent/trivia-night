@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Trivia Night</title>
+<style>
+  :root { --bg: #1d1240; --card: #2a1c5c; --ink: #fff; --dim: #c9bdf0; --gold: #ffd23f; --a: #ff5a7a; --b: #3ec1ff; --c: #ffb23f; --d: #4ee08a; }
+  html, body { margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none; }
+  body { background: radial-gradient(900px 600px at 20% -10%, #4b2a9a, transparent 60%), radial-gradient(800px 600px at 110% 110%, #7a1f6a, transparent 60%), var(--bg);
+         color: var(--ink); font: 16px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+  #app { height: 100%; display: flex; flex-direction: column; max-width: 760px; margin: 0 auto; padding: max(12px, env(safe-area-inset-top)) 16px max(12px, env(safe-area-inset-bottom)); box-sizing: border-box; }
+  header { display: flex; align-items: center; gap: 12px; }
+  header h1 { margin: 0; font-size: 20px; letter-spacing: .02em; }
+  #qn { margin-left: auto; font-weight: 700; color: var(--dim); }
+  #name { width: 130px; height: 36px; border-radius: 10px; border: 1px solid #ffffff33; background: #ffffff14; color: #fff; padding: 0 10px; font: inherit; font-size: 16px; }
+  #bar { height: 10px; border-radius: 6px; background: #ffffff1a; margin: 12px 0 14px; overflow: hidden; }
+  #bar i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, var(--gold), var(--a)); transform-origin: left; }
+  main { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: 18px; }
+  #q { font-size: clamp(22px, 4.6vw, 34px); font-weight: 800; text-align: center; text-wrap: balance; }
+  #sub { text-align: center; color: var(--dim); font-weight: 600; min-height: 1.4em; }
+  #answers { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  #answers button { min-height: 76px; border: 0; border-radius: 16px; color: #1b0f33; font: 800 clamp(16px, 3.6vw, 21px) system-ui, sans-serif; padding: 10px 14px; cursor: pointer;
+                    box-shadow: 0 6px 0 #0005; transition: transform .08s, opacity .2s, filter .2s; text-align: left; display: flex; gap: 10px; align-items: center; }
+  #answers button b { display: grid; place-items: center; width: 34px; height: 34px; flex: none; border-radius: 10px; background: #fff7; }
+  #answers button:active { transform: translateY(3px); box-shadow: 0 3px 0 #0005; }
+  #answers button:nth-child(1) { background: var(--a); } #answers button:nth-child(2) { background: var(--b); }
+  #answers button:nth-child(3) { background: var(--c); } #answers button:nth-child(4) { background: var(--d); }
+  #answers button.picked { outline: 4px solid #fff; outline-offset: 2px; }
+  #answers button.dim { opacity: .28; filter: grayscale(.6); }
+  #answers button.right { outline: 4px solid var(--gold); outline-offset: 2px; transform: scale(1.03); }
+  #answers[hidden], #podium[hidden], #board[hidden] { display: none; }
+  #players { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .p { display: flex; align-items: center; gap: 7px; padding: 5px 11px 5px 5px; border-radius: 999px; background: #ffffff14; font-size: 14px; font-weight: 600; position: relative; }
+  .p .av { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; color: #1b0f33; font-size: 13px; }
+  .p.me { box-shadow: inset 0 0 0 2px var(--gold); }
+  .p.in .av::after { content: "✓"; position: absolute; left: 21px; top: -2px; background: var(--d); color: #062; border-radius: 50%; width: 15px; height: 15px; font-size: 10px; display: grid; place-items: center; }
+  .p em { font-style: normal; color: var(--gold); }
+  .gain { color: var(--d); font-weight: 800; }
+  #podium { display: flex; justify-content: center; align-items: flex-end; gap: 10px; }
+  #podium div { width: 30%; max-width: 160px; text-align: center; font-weight: 800; }
+  #podium div span { display: block; margin-top: 6px; border-radius: 12px 12px 0 0; background: var(--card); padding-top: 10px; color: var(--gold); font-size: 26px; }
+  #board { background: #0003; border-radius: 14px; padding: 10px 14px; font-size: 14px; }
+  #board h3 { margin: 0 0 6px; font-size: 14px; color: var(--gold); }
+  #board ol { margin: 0; padding-left: 22px; } #board li span { float: right; }
+  #net { text-align: center; font-size: 12px; color: var(--dim); opacity: .8; }
+  @media (max-width: 520px) { #answers { grid-template-columns: 1fr; } #answers button { min-height: 58px; } #name { width: 104px; } }
+</style>
+<script src="https://cdn.multiplayeragent.com/sdk/mp.global.js"></script>
+</head>
+<body>
+<div id="app">
+  <header><h1>Trivia Night</h1><span id="qn"></span><input id="name" maxlength="16" placeholder="Your name" aria-label="Your name"></header>
+  <div id="bar"><i></i></div>
+  <main>
+    <div id="q">Connecting…</div>
+    <div id="sub"></div>
+    <div id="answers" hidden></div>
+    <div id="podium" hidden></div>
+    <div id="board" hidden><h3>All-time best games</h3><ol id="boardList"></ol></div>
+    <div id="players"></div>
+  </main>
+  <div id="net"></div>
+</div>
+<script>
+/* ═══ TRIVIA NIGHT · a Multiplayer Agent starter ════════════════════════════════════════
+ * Quick questions you can change any time. Party, 2–12 players; bots fill empty seats.
+ *
+ * WHERE THINGS ARE (search for the "── " headers):
+ *   CONFIG ........ timers, scoring, bots
+ *   QUESTIONS ..... the question pack. Swap it, add to it, change the theme.
+ *   CONNECTION .... MP_CONNECT, joining, the offline room, who is host
+ *   GAME (HOST) ... the phases (lobby, question, reveal, results), scoring, the bots.
+ *                   Only the host writes the shared `game` field.
+ *   MY ANSWER ..... picking an answer. Each player writes only its own.
+ *   SCREEN ........ drawing every phase from state, the leaderboard
+ *
+ * HOW THE MULTIPLAYER WORKS (a relay room: no server code):
+ *   - The whole game lives in ONE shared field, `game`: {id, v, phase, seed, n, qAt, endsAt,
+ *     scores, gained, bots}. Only the HOST writes it. `v` goes up on every write.
+ *   - The HOST is the lowest sessionId among live players (heartbeat seen in the last 3s),
+ *     worked out every frame. Timers are timestamps (endsAt) that only the host acts on,
+ *     so a new host carries on the same question, and an overdue timer fires at once.
+ *   - Each player writes its OWN entity: `n` (name), `c` (color), `hb` (heartbeat) and
+ *     `ans` = {g, n, c, ms} once per question: game id, question number, choice, time taken.
+ *   - Which 10 questions, in which order, comes from game.seed, so every player agrees.
+ *   - ?attract plays offline with bots only (the preview video is recorded from it).
+ *   - Leaderboard "trivia-points": each player's best game, shown on the results screen.
+ */
+
+// ── CONFIG ──────────────────────────────────────────────────────────────────────────
+const CONFIG = {
+  questions: 10,      // questions per game
+  answerMs: 15000,    // time to answer
+  revealMs: 4500,     // time the right answer shows
+  lobbyMs: 6000,      // countdown before a game
+  resultsMs: 12000,   // time on the results screen
+  maxPoints: 1000,    // a right answer at once; it drops to half by the buzzer
+  seats: 4,           // bots fill the room up to this many players
+  botSkill: 0.6,      // chance a bot gets it right
+  board: "trivia-points",
+};
+const BOT_NAMES = ["Quizzy", "Brainy", "Professor", "Know-It-Owl", "Smarty", "Trivio"];
+const COLORS = ["#ff5a7a", "#3ec1ff", "#ffb23f", "#4ee08a", "#c792ff", "#ff8fd1", "#7df0e0", "#ffe36e"];
+
+// ── QUESTIONS ───────────────────────────────────────────────────────────────────────
+// q: the question, a: four answers, c: which one is right (0-3).
+const QUESTIONS = [
+  { q: "Which planet is known as the Red Planet?", a: ["Venus", "Mars", "Jupiter", "Mercury"], c: 1 },
+  { q: "How many legs does a spider have?", a: ["6", "8", "10", "12"], c: 1 },
+  { q: "What is the largest ocean on Earth?", a: ["Atlantic", "Indian", "Arctic", "Pacific"], c: 3 },
+  { q: "Which animal is the tallest in the world?", a: ["Elephant", "Giraffe", "Moose", "Ostrich"], c: 1 },
+  { q: "What gas do plants take in from the air?", a: ["Oxygen", "Nitrogen", "Carbon dioxide", "Helium"], c: 2 },
+  { q: "How many minutes are in a day?", a: ["1,440", "1,200", "3,600", "960"], c: 0 },
+  { q: "Which instrument has 88 keys?", a: ["Organ", "Accordion", "Piano", "Harp"], c: 2 },
+  { q: "What is the capital of Japan?", a: ["Osaka", "Kyoto", "Seoul", "Tokyo"], c: 3 },
+  { q: "Which is the smallest prime number?", a: ["0", "1", "2", "3"], c: 2 },
+  { q: "What do bees make?", a: ["Silk", "Honey", "Milk", "Wax paper"], c: 1 },
+  { q: "Which continent is the Sahara Desert on?", a: ["Asia", "Africa", "Australia", "South America"], c: 1 },
+  { q: "How many sides does a hexagon have?", a: ["5", "6", "7", "8"], c: 1 },
+  { q: "What is frozen water called?", a: ["Steam", "Ice", "Dew", "Fog"], c: 1 },
+  { q: "Which planet has the most famous rings?", a: ["Saturn", "Neptune", "Earth", "Mars"], c: 0 },
+  { q: "What color do you get by mixing blue and yellow?", a: ["Purple", "Orange", "Green", "Brown"], c: 2 },
+  { q: "Which bird is known for mimicking human speech?", a: ["Parrot", "Penguin", "Pigeon", "Eagle"], c: 0 },
+  { q: "How many players are on a soccer team on the field?", a: ["9", "10", "11", "12"], c: 2 },
+  { q: "What is the hardest natural substance?", a: ["Gold", "Iron", "Diamond", "Quartz"], c: 2 },
+  { q: "Which language has the most native speakers?", a: ["English", "Spanish", "Hindi", "Mandarin Chinese"], c: 3 },
+  { q: "What is the boiling point of water at sea level in °C?", a: ["90", "100", "110", "120"], c: 1 },
+  { q: "Which shape has three sides?", a: ["Square", "Circle", "Triangle", "Pentagon"], c: 2 },
+  { q: "What is the closest star to Earth?", a: ["Sirius", "The Sun", "Polaris", "Alpha Centauri"], c: 1 },
+  { q: "Which fruit keeps the doctor away, says the rhyme?", a: ["Banana", "Apple", "Orange", "Grape"], c: 1 },
+  { q: "How many hours are in two days?", a: ["24", "36", "48", "72"], c: 2 },
+  { q: "Which ocean animal has eight arms?", a: ["Octopus", "Dolphin", "Starfish", "Shark"], c: 0 },
+  { q: "What is the main ingredient in guacamole?", a: ["Tomato", "Avocado", "Pea", "Lime"], c: 1 },
+  { q: "Which is the longest river in the world?", a: ["Amazon", "Nile", "Yangtze", "Mississippi"], c: 1 },
+  { q: "In which sport do you use a shuttlecock?", a: ["Tennis", "Squash", "Badminton", "Golf"], c: 2 },
+  { q: "How many colors are in a rainbow?", a: ["5", "6", "7", "8"], c: 2 },
+  { q: "What is the largest mammal?", a: ["Elephant", "Blue whale", "Hippo", "Giraffe"], c: 1 },
+];
+
+// ── CONNECTION ──────────────────────────────────────────────────────────────────────
+// The builder fills these in for this game. Downloaded from GitHub? Put your own pk_ key here.
+const MP_CONNECT = {
+  key: 'pk_REPLACE_ME',
+  room: 'trivia-night',
+  endpoint: 'wss://live.multiplayeragent.com',
+  apiUrl: 'https://api.multiplayeragent.com',
+};
+const ATTRACT = new URLSearchParams(location.search).has("attract");
+
+/** Same shape as the SDK client, kept in this tab: offline play and ?attract. */
+function localRoom() {
+  const id = "local", state = { entities: { players: { [id]: {} } }, shared: {} }, subs = [];
+  let queued = false;
+  const emit = () => { if (!queued) { queued = true; queueMicrotask(() => { queued = false; subs.forEach((f) => f(state)); }); } };
+  const put = (o, k, v) => { if (typeof k === "object") Object.assign(o, k); else o[k] = v; emit(); };
+  return {
+    sessionId: id, state, offline: true,
+    me: { set: (k, v) => put(state.entities.players[id], k, v) },
+    setShared: (k, v) => put(state.shared, k, v),
+    onState: (f) => { subs.push(f); f(state); }, onJoin() {}, onLeave() {}, on() {}, send() {},
+    onDisconnect() {}, onReconnect() {}, leave: async () => {},
+  };
+}
+async function connect() {
+  if (ATTRACT || typeof MP === "undefined") return localRoom();
+  try {
+    const mp = await Promise.race([MP.join({ ...MP_CONNECT }), new Promise((_, no) => setTimeout(() => no(new Error("timed out")), 10000))]);
+    window.mp = mp; // the builder calls window.mp.leave() when the page closes
+    return mp;
+  } catch (e) {
+    console.warn("Playing offline:", e && e.message);
+    return localRoom();
+  }
+}
+const parse = (v, fb) => { if (typeof v !== "string") return fb; try { return JSON.parse(v); } catch { return fb; } };
+let net = null, S = { entities: { players: {} }, shared: {} };
+const seenHb = new Map();
+function livePlayers() {
+  const now = performance.now(), out = [];
+  for (const [id, p] of Object.entries(S.entities.players || {})) {
+    const s = seenHb.get(id);
+    if (!s || s.hb !== p.hb) seenHb.set(id, { hb: p.hb, at: now });
+    if (id === net.sessionId || now - seenHb.get(id).at < 3000) out.push(id);
+  }
+  return out.sort();
+}
+const isHost = () => livePlayers()[0] === net.sessionId;
+
+// ── GAME (HOST) ─────────────────────────────────────────────────────────────────────
+const host = { last: null, plan: new Map(), planFor: "" };
+/** The game as state has it, or the host's own newer write that hasn't come back yet. */
+function game() {
+  const g = parse(S.shared.game, null);
+  return host.last && isHost() && (!g || host.last.v > g.v) ? host.last : g;
+}
+function writeGame(g) { g = { ...g, v: (game()?.v ?? 0) + 1 }; host.last = g; net.setShared("game", JSON.stringify(g)); return g; }
+
+function mulberry32(a) { return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+/** The game's questions, in order: the same for everyone with the same seed. */
+function pick(seed) {
+  const r = mulberry32(seed), idx = QUESTIONS.map((_, i) => i);
+  for (let i = idx.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [idx[i], idx[j]] = [idx[j], idx[i]]; }
+  return idx.slice(0, Math.min(CONFIG.questions, idx.length)).map((i) => QUESTIONS[i]);
+}
+const humans = () => livePlayers().filter((id) => !(ATTRACT && id === net.sessionId));
+/** Everyone's answer to question `n` of game `id`: { playerId: {c, ms} }. */
+function answersTo(g) {
+  const out = {};
+  for (const [id, p] of Object.entries(S.entities.players || {})) {
+    const a = id === net.sessionId ? myAns : parse(p.ans, null);
+    if (a && a.g === g.id && a.n === g.n) out[id] = a;
+  }
+  for (const b of g.bots) if (b.a && b.a.n === g.n) out[b.i] = b.a;
+  return out;
+}
+const points = (ms) => Math.round(CONFIG.maxPoints * (1 - 0.5 * Math.min(1, ms / CONFIG.answerMs)));
+
+function newBots() {
+  const want = Math.max(0, CONFIG.seats - humans().length), names = [...BOT_NAMES].sort(() => Math.random() - 0.5);
+  return Array.from({ length: want }, (_, i) => ({ i: "b" + i, n: names[i], c: COLORS[(i + 4) % COLORS.length], a: null }));
+}
+
+function hostTick() {
+  let g = game();
+  const t = Date.now();
+  if (!g) g = writeGame({ id: 1, phase: "lobby", seed: (Math.random() * 1e9) | 0, n: 0, qAt: 0, endsAt: t + CONFIG.lobbyMs, scores: {}, gained: {}, bots: newBots() });
+  if (t < g.endsAt && g.phase !== "question") return;
+  if (g.phase === "lobby") return void writeGame({ ...g, phase: "question", n: 0, qAt: t, endsAt: t + CONFIG.answerMs });
+  if (g.phase === "question") {
+    botAnswers(g, t);
+    g = game();
+    const ans = answersTo(g), everyone = [...humans(), ...g.bots.map((b) => b.i)];
+    if (t < g.endsAt && !everyone.every((id) => ans[id])) return;
+    // Reveal: score every answer to THIS question, once.
+    const q = pick(g.seed)[g.n], scores = { ...g.scores }, gained = {};
+    for (const [id, a] of Object.entries(ans)) { const p = a.c === q.c ? points(a.ms) : 0; gained[id] = p; scores[id] = (scores[id] || 0) + p; }
+    return void writeGame({ ...g, phase: "reveal", endsAt: t + CONFIG.revealMs, scores, gained });
+  }
+  if (g.phase === "reveal") {
+    if (g.n + 1 < pick(g.seed).length) return void writeGame({ ...g, phase: "question", n: g.n + 1, qAt: t, endsAt: t + CONFIG.answerMs, gained: {} });
+    return void writeGame({ ...g, phase: "results", endsAt: t + CONFIG.resultsMs });
+  }
+  if (g.phase === "results") writeGame({ id: g.id + 1, phase: "lobby", seed: (Math.random() * 1e9) | 0, n: 0, qAt: 0, endsAt: t + CONFIG.lobbyMs, scores: {}, gained: {}, bots: newBots() });
+}
+
+/** Bots answer at a time the host plans for each question (re-planned by a new host). */
+function botAnswers(g, t) {
+  const key = g.id + ":" + g.n;
+  if (host.planFor !== key) {
+    host.planFor = key; host.plan.clear();
+    const q = pick(g.seed)[g.n];
+    for (const b of g.bots) {
+      const right = Math.random() < CONFIG.botSkill, wrong = [0, 1, 2, 3].filter((c) => c !== q.c);
+      host.plan.set(b.i, { at: g.qAt + 2500 + Math.random() * (CONFIG.answerMs * (ATTRACT ? 0.45 : 0.7)), c: right ? q.c : wrong[Math.floor(Math.random() * 3)] });
+    }
+  }
+  let changed = false;
+  const bots = g.bots.map((b) => {
+    const p = host.plan.get(b.i);
+    if (!p || (b.a && b.a.n === g.n) || t < p.at) return b;
+    changed = true;
+    return { ...b, a: { n: g.n, c: p.c, ms: p.at - g.qAt } };
+  });
+  if (changed) writeGame({ ...g, bots });
+}
+
+// ── MY ANSWER ───────────────────────────────────────────────────────────────────────
+let myAns = null, shownAt = 0, shownFor = "";
+function answer(c) {
+  const g = game();
+  if (!g || g.phase !== "question" || (myAns && myAns.g === g.id && myAns.n === g.n)) return;
+  myAns = { g: g.id, n: g.n, c, ms: Math.round(performance.now() - shownAt) };
+  net.me.set("ans", JSON.stringify(myAns));
+  render();
+}
+
+// ── SCREEN ──────────────────────────────────────────────────────────────────────────
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const answersEl = $("answers");
+for (let i = 0; i < 4; i++) {
+  const b = document.createElement("button");
+  b.innerHTML = `<b>${"ABCD"[i]}</b><span></span>`;
+  b.onclick = () => answer(i);
+  answersEl.appendChild(b);
+}
+addEventListener("keydown", (e) => { const i = "1234".indexOf(e.key) >= 0 ? "1234".indexOf(e.key) : "abcd".indexOf(e.key.toLowerCase()); if (i >= 0 && document.activeElement !== $("name")) answer(i); });
+
+/** Everyone in the room: humans from their entities, bots from the game. */
+function roster(g) {
+  const out = [];
+  for (const id of livePlayers()) {
+    if (ATTRACT && id === net.sessionId) continue;
+    const p = S.entities.players[id] || {};
+    out.push({ id, n: id === net.sessionId ? myName || "You" : p.n || "Player", c: id === net.sessionId ? myColor : p.c || "#ccc", me: id === net.sessionId });
+  }
+  for (const b of g ? g.bots : []) out.push({ id: b.i, n: b.n, c: b.c, bot: true });
+  return out;
+}
+
+let boardFor = -1;
+function render() {
+  const g = game();
+  if (!g) return;
+  const t = Date.now(), qs = pick(g.seed), q = qs[g.n], key = g.id + ":" + g.n + ":" + g.phase;
+  if (g.phase === "question" && shownFor !== g.id + ":" + g.n) { shownFor = g.id + ":" + g.n; shownAt = performance.now(); }
+  const left = Math.max(0, g.endsAt - t), span = g.phase === "question" ? CONFIG.answerMs : g.phase === "reveal" ? CONFIG.revealMs : g.phase === "lobby" ? CONFIG.lobbyMs : CONFIG.resultsMs;
+  $("bar").firstElementChild.style.transform = `scaleX(${Math.min(1, left / span)})`;
+  $("qn").textContent = g.phase === "question" || g.phase === "reveal" ? `Question ${g.n + 1} of ${qs.length}` : "";
+  const ans = answersTo(g), people = roster(g);
+  $("answers").hidden = !(g.phase === "question" || g.phase === "reveal");
+  $("podium").hidden = $("board").hidden = g.phase !== "results";
+  if (g.phase === "lobby") {
+    $("q").textContent = `Next game in ${Math.ceil(left / 1000)}`;
+    $("sub").textContent = `${qs.length} questions, ${CONFIG.answerMs / 1000} seconds each. Faster right answers score more.`;
+  } else if (g.phase === "question" || g.phase === "reveal") {
+    $("q").textContent = q.q;
+    const mine = myAns && myAns.g === g.id && myAns.n === g.n ? myAns.c : -1;
+    [...answersEl.children].forEach((b, i) => {
+      b.lastElementChild.textContent = q.a[i];
+      b.classList.toggle("picked", i === mine);
+      b.classList.toggle("right", g.phase === "reveal" && i === q.c);
+      b.classList.toggle("dim", g.phase === "reveal" ? i !== q.c : mine >= 0 && i !== mine);
+    });
+    $("sub").textContent = g.phase === "reveal" ? (mine === q.c ? `Right! +${g.gained[net.sessionId] || 0}` : mine >= 0 ? "Not this time." : "Time's up.")
+      : mine >= 0 ? "Locked in. Waiting for the others…" : `${Math.ceil(left / 1000)}s`;
+  } else if (g.phase === "results") {
+    const ranked = people.map((p) => ({ ...p, s: g.scores[p.id] || 0 })).sort((a, b) => b.s - a.s);
+    $("q").textContent = ranked[0] && ranked[0].s ? `${ranked[0].me ? "You win" : ranked[0].n + " wins"}!` : "Game over";
+    $("sub").textContent = `Next game in ${Math.ceil(left / 1000)}s`;
+    const top3 = [ranked[1], ranked[0], ranked[2]];
+    $("podium").innerHTML = top3.map((p, i) => p ? `<div>${esc(p.n)}<span style="height:${[70, 100, 50][i]}px">${p.s}</span></div>` : "<div></div>").join("");
+    if (boardFor !== g.id) { boardFor = g.id; showBoard(g.scores[net.sessionId] || 0); }
+  }
+  const scored = g.phase !== "lobby";
+  $("players").innerHTML = people
+    .map((p) => ({ ...p, s: g.scores[p.id] || 0 }))
+    .sort((a, b) => (scored ? b.s - a.s : 0))
+    .map((p) => `<div class="p ${p.me ? "me" : ""} ${g.phase === "question" && ans[p.id] ? "in" : ""}"><span class="av" style="background:${esc(p.c)}">${esc(p.n[0] || "?")}</span>${esc(p.n)}${scored ? ` <em>${p.s}</em>` : ""}${g.phase === "reveal" && g.gained[p.id] ? ` <span class="gain">+${g.gained[p.id]}</span>` : ""}</div>`)
+    .join("");
+  const n = humans().length;
+  $("net").textContent = ATTRACT ? "" : net.offline ? "Offline: playing with bots" : `Online · ${n} player${n === 1 ? "" : "s"}${isHost() ? " · you run the game" : ""}`;
+}
+
+let board = null;
+function showBoard(score) {
+  const list = $("boardList");
+  if (!board) { list.innerHTML = "<li>Leaderboards need a connection.</li>"; return; }
+  list.innerHTML = "<li>Loading…</li>";
+  (score > 0 ? board.submit(score).catch(() => null) : Promise.resolve()).then(() => board.top(10)).then(({ entries }) => {
+    list.innerHTML = entries.length ? entries.map((e) => `<li>${esc(e.username || "Player")}<span>${e.score}</span></li>`).join("") : "<li>No scores yet. Win one.</li>";
+  }).catch(() => { list.innerHTML = "<li>Couldn't load the leaderboard.</li>"; });
+}
+
+// ?attract: answer like a bot so the preview shows the whole loop.
+function autoAnswer() {
+  const g = game();
+  if (!ATTRACT || !g || g.phase !== "question" || (myAns && myAns.g === g.id && myAns.n === g.n)) return;
+  if (performance.now() - shownAt > 3000 + Math.random() * 2000) answer(Math.random() < 0.7 ? pick(g.seed)[g.n].c : Math.floor(Math.random() * 4));
+}
+
+// ── MAIN LOOP ───────────────────────────────────────────────────────────────────────
+let myName = "", myColor = COLORS[0], lastHb = 0; // the color is picked on join: the first one nobody has
+/** Two people joined at once in one color: the one with the higher sessionId picks a free one. */
+function fixColor() {
+  const others = Object.entries(S.entities.players || {}).filter(([id]) => id !== net.sessionId);
+  if (!others.some(([id, p]) => p.c === myColor && id < net.sessionId)) return;
+  const taken = new Set(others.map(([, p]) => p.c)), free = COLORS.find((c) => !taken.has(c));
+  if (free) { myColor = free; net.me.set("c", free); }
+}
+try { myName = localStorage.getItem("mpa-name") || ""; } catch {}
+$("name").value = myName;
+$("name").addEventListener("change", () => {
+  myName = $("name").value.trim().slice(0, 16);
+  try { localStorage.setItem("mpa-name", myName); } catch {}
+  net && net.me.set("n", myName || "Player");
+});
+if (ATTRACT) { $("name").style.display = "none"; Object.assign(CONFIG, { answerMs: 7000, revealMs: 2600, lobbyMs: 2500, resultsMs: 5000, questions: 4 }); }
+
+function frame(now) {
+  if (now - lastHb > 1000) { lastHb = now; net.me.set("hb", Date.now()); fixColor(); }
+  if (isHost()) hostTick();
+  autoAnswer();
+  render();
+  setTimeout(() => requestAnimationFrame(frame), 100); // 10 frames a second is plenty for a quiz
+}
+
+(async function start() {
+  net = await connect();
+  net.onState((st) => { S = st; });
+  net.onDisconnect(() => { $("net").textContent = "Reconnecting…"; });
+  if (!net.offline && typeof MP !== "undefined") board = MP.auth({ key: MP_CONNECT.key, apiUrl: MP_CONNECT.apiUrl }).leaderboard(CONFIG.board);
+  const taken = new Set(Object.entries(S.entities.players || {}).filter(([id]) => id !== net.sessionId).map(([, p]) => p.c));
+  myColor = COLORS.find((c) => !taken.has(c)) || COLORS[Math.floor(Math.random() * COLORS.length)];
+  net.me.set({ n: myName || "Player", c: myColor, hb: Date.now() });
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
