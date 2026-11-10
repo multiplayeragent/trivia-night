@@ -381,11 +381,11 @@ $("name").addEventListener("change", () => {
 if (ATTRACT) { $("name").style.display = "none"; Object.assign(CONFIG, { answerMs: 7000, revealMs: 2600, lobbyMs: 2500, resultsMs: 5000, questions: 4 }); }
 
 function frame(now) {
+  setTimeout(() => requestAnimationFrame(frame), 100); // 10 frames a second is plenty for a quiz
   if (now - lastHb > 1000) { lastHb = now; net.me.set("hb", Date.now()); fixColor(); }
   if (isHost()) hostTick();
   autoAnswer();
   render();
-  setTimeout(() => requestAnimationFrame(frame), 100); // 10 frames a second is plenty for a quiz
 }
 
 (async function start() {
