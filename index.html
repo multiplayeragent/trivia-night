@@ -218,7 +218,8 @@ const points = (ms) => Math.round(CONFIG.maxPoints * (1 - 0.5 * Math.min(1, ms /
 
 function newBots() {
   const want = Math.max(0, CONFIG.seats - humans().length), names = [...BOT_NAMES].sort(() => Math.random() - 0.5);
-  return Array.from({ length: want }, (_, i) => ({ i: "b" + i, n: names[i], c: COLORS[(i + 4) % COLORS.length], a: null }));
+  const used = new Set(humans().map((id) => (id === net.sessionId ? myColor : S.entities.players[id]?.c))), free = [...COLORS.slice(4), ...COLORS.slice(0, 4)].filter((c) => !used.has(c)); // no bot in a player's color
+  return Array.from({ length: want }, (_, i) => ({ i: "b" + i, n: names[i], c: free[i] || COLORS[(i + 4) % COLORS.length], a: null }));
 }
 
 function hostTick() {
@@ -300,6 +301,7 @@ function roster(g) {
 }
 
 let boardFor = -1;
+let dropped = false; // true while the connection is down: the HUD keeps showing "Reconnecting…"
 function render() {
   const g = game();
   if (!g) return;
@@ -340,7 +342,7 @@ function render() {
     .map((p) => `<div class="p ${p.me ? "me" : ""} ${g.phase === "question" && ans[p.id] ? "in" : ""}"><span class="av" style="background:${esc(p.c)}">${esc(p.n[0] || "?")}</span>${esc(p.n)}${scored ? ` <em>${p.s}</em>` : ""}${g.phase === "reveal" && g.gained[p.id] ? ` <span class="gain">+${g.gained[p.id]}</span>` : ""}</div>`)
     .join("");
   const n = humans().length;
-  $("net").textContent = ATTRACT ? "" : net.offline ? "Offline: playing with bots" : `Online · ${n} player${n === 1 ? "" : "s"}${isHost() ? " · you run the game" : ""}`;
+  $("net").textContent = ATTRACT ? "" : net.offline ? "Offline: playing with bots" : dropped ? "Reconnecting…" : `Online · ${n} player${n === 1 ? "" : "s"}${isHost() ? " · you run the game" : ""}`;
 }
 
 let board = null;
@@ -362,11 +364,11 @@ function autoAnswer() {
 
 // ── MAIN LOOP ───────────────────────────────────────────────────────────────────────
 let myName = "", myColor = COLORS[0], lastHb = 0; // the color is picked on join: the first one nobody has
-/** Two people joined at once in one color: the one with the higher sessionId picks a free one. */
+/** Two people joined at once in one color: the one with the higher sessionId picks a free one. Bots' colors count as taken. */
 function fixColor() {
-  const others = Object.entries(S.entities.players || {}).filter(([id]) => id !== net.sessionId);
-  if (!others.some(([id, p]) => p.c === myColor && id < net.sessionId)) return;
-  const taken = new Set(others.map(([, p]) => p.c)), free = COLORS.find((c) => !taken.has(c));
+  const others = Object.entries(S.entities.players || {}).filter(([id]) => id !== net.sessionId), botColors = (game()?.bots || []).map((b) => b.c);
+  if (!others.some(([id, p]) => p.c === myColor && id < net.sessionId) && !botColors.includes(myColor)) return;
+  const taken = new Set([...others.map(([, p]) => p.c), ...botColors]), free = COLORS.find((c) => !taken.has(c));
   if (free) { myColor = free; net.me.set("c", free); }
 }
 try { myName = localStorage.getItem("mpa-name") || ""; } catch {}
@@ -389,9 +391,10 @@ function frame(now) {
 (async function start() {
   net = await connect();
   net.onState((st) => { S = st; });
-  net.onDisconnect(() => { $("net").textContent = "Reconnecting…"; });
+  net.onDisconnect(() => { dropped = true; $("net").textContent = "Reconnecting…"; });
+  net.onReconnect(() => { dropped = false; });
   if (!net.offline && typeof MP !== "undefined") board = MP.auth({ key: MP_CONNECT.key, apiUrl: MP_CONNECT.apiUrl }).leaderboard(CONFIG.board);
-  const taken = new Set(Object.entries(S.entities.players || {}).filter(([id]) => id !== net.sessionId).map(([, p]) => p.c));
+  const taken = new Set([...Object.entries(S.entities.players || {}).filter(([id]) => id !== net.sessionId).map(([, p]) => p.c), ...(game()?.bots || []).map((b) => b.c)]);
   myColor = COLORS.find((c) => !taken.has(c)) || COLORS[Math.floor(Math.random() * COLORS.length)];
   net.me.set({ n: myName || "Player", c: myColor, hb: Date.now() });
   requestAnimationFrame(frame);
