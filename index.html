@@ -185,10 +185,12 @@ function livePlayers() {
   }
   return out.sort();
 }
-const isHost = () => livePlayers()[0] === net.sessionId;
+/** Never while my own loop is stalled (a frozen or background tab), nor for 0.7s after it wakes:
+ *  the room moved on without me, so the newer state lands first and I carry on from it. */
+const isHost = () => livePlayers()[0] === net.sessionId && performance.now() - host.wokeAt > 700 && performance.now() - host.frameAt < 1000;
 
 // ── GAME (HOST) ─────────────────────────────────────────────────────────────────────
-const host = { last: null, plan: new Map(), planFor: "" };
+const host = { last: null, plan: new Map(), planFor: "", frameAt: 0, wokeAt: -1e9 };
 /** The game as state has it, or the host's own newer write that hasn't come back yet. */
 function game() {
   const g = parse(S.shared.game, null);
@@ -382,6 +384,9 @@ if (ATTRACT) { $("name").style.display = "none"; Object.assign(CONFIG, { answerM
 
 function frame(now) {
   setTimeout(() => requestAnimationFrame(frame), 100); // 10 frames a second is plenty for a quiz
+  const t0 = performance.now(); // not `now`: the first frame after a freeze can be stamped from before it ended
+  if (host.frameAt && t0 - host.frameAt > 1000) { host.wokeAt = t0; host.last = null; host.planFor = ""; } // woke from a stall: forget my host copy (see isHost)
+  host.frameAt = t0;
   if (now - lastHb > 1000) { lastHb = now; net.me.set("hb", Date.now()); fixColor(); }
   if (isHost()) hostTick();
   autoAnswer();
