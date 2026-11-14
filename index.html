@@ -44,7 +44,9 @@
   #board h3 { margin: 0 0 6px; font-size: 14px; color: var(--gold); }
   #board ol { margin: 0; padding-left: 22px; } #board li span { float: right; }
   #net { text-align: center; font-size: 12px; color: var(--dim); opacity: .8; }
-  @media (max-width: 520px) { #answers { grid-template-columns: 1fr; } #answers button { min-height: 58px; } #name { width: 104px; } }
+  #board li.msg { list-style: none; margin-left: -22px; color: var(--dim); } /* a status line, not a numbered entry */
+  @media (max-width: 520px) { #answers { grid-template-columns: 1fr; } #answers button { min-height: 58px; } #name { width: 96px; }
+    header { gap: 8px; } header h1 { font-size: 18px; white-space: nowrap; } #qn { font-size: 14px; white-space: nowrap; } } /* the header stays on one line on a phone */
 </style>
 <script src="https://cdn.multiplayeragent.com/sdk/mp.global.js"></script>
 </head>
@@ -132,7 +134,7 @@ const QUESTIONS = [
   { q: "How many hours are in two days?", a: ["24", "36", "48", "72"], c: 2 },
   { q: "Which ocean animal has eight arms?", a: ["Octopus", "Dolphin", "Starfish", "Shark"], c: 0 },
   { q: "What is the main ingredient in guacamole?", a: ["Tomato", "Avocado", "Pea", "Lime"], c: 1 },
-  { q: "Which is the longest river in the world?", a: ["Amazon", "Nile", "Yangtze", "Mississippi"], c: 1 },
+  { q: "Which river flows through Cairo?", a: ["Amazon", "Nile", "Yangtze", "Mississippi"], c: 1 },
   { q: "In which sport do you use a shuttlecock?", a: ["Tennis", "Squash", "Badminton", "Golf"], c: 2 },
   { q: "How many colors are in a rainbow?", a: ["5", "6", "7", "8"], c: 2 },
   { q: "What is the largest mammal?", a: ["Elephant", "Blue whale", "Hippo", "Giraffe"], c: 1 },
@@ -331,7 +333,7 @@ function render() {
       : mine >= 0 ? "Locked in. Waiting for the others…" : `${Math.ceil(left / 1000)}s`;
   } else if (g.phase === "results") {
     const ranked = people.map((p) => ({ ...p, s: g.scores[p.id] || 0 })).sort((a, b) => b.s - a.s);
-    $("q").textContent = ranked[0] && ranked[0].s ? `${ranked[0].me ? "You win" : ranked[0].n + " wins"}!` : "Game over";
+    $("q").textContent = !(ranked[0] && ranked[0].s) ? "Game over" : ranked[1] && ranked[1].s === ranked[0].s ? "It's a tie!" : `${ranked[0].me ? "You win" : ranked[0].n + " wins"}!`;
     $("sub").textContent = `Next game in ${Math.ceil(left / 1000)}s`;
     const top3 = [ranked[1], ranked[0], ranked[2]];
     $("podium").innerHTML = top3.map((p, i) => p ? `<div>${esc(p.n)}<span style="height:${[70, 100, 50][i]}px">${p.s}</span></div>` : "<div></div>").join("");
@@ -350,11 +352,11 @@ function render() {
 let board = null;
 function showBoard(score) {
   const list = $("boardList");
-  if (!board) { list.innerHTML = "<li>Leaderboards need a connection.</li>"; return; }
-  list.innerHTML = "<li>Loading…</li>";
+  if (!board) { list.innerHTML = `<li class="msg">Leaderboards need a connection.</li>`; return; }
+  list.innerHTML = `<li class="msg">Loading…</li>`;
   (score > 0 ? board.submit(score).catch(() => null) : Promise.resolve()).then(() => board.top(10)).then(({ entries }) => {
-    list.innerHTML = entries.length ? entries.map((e) => `<li>${esc(e.username || "Player")}<span>${e.score}</span></li>`).join("") : "<li>No scores yet. Win one.</li>";
-  }).catch(() => { list.innerHTML = "<li>Couldn't load the leaderboard.</li>"; });
+    list.innerHTML = entries.length ? entries.map((e) => `<li>${esc(e.username || "Player")}<span>${e.score}</span></li>`).join("") : `<li class="msg">No scores yet. Win one.</li>`;
+  }).catch(() => { list.innerHTML = `<li class="msg">Couldn't load the leaderboard.</li>`; });
 }
 
 // ?attract: answer like a bot so the preview shows the whole loop.
